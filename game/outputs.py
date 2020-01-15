@@ -2,6 +2,8 @@ import math
 import car
 from constants import circuit
 from pygame.math import Vector2
+import utils
+
 
 class Outputs:
 
@@ -22,7 +24,7 @@ class Outputs:
 
 		self.collision_distances = []
 
-		for vect in sensor_vectors:
+		for vect in self.sensor_vectors:
 			rotated_vect = vect.rotate(math.degrees(car.heading))
 			center, dist = utils.distanceToCollision(car.position, circuit, rotated_vect)
 			self.collision_distances.append(dist)
