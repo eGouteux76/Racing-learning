@@ -35,8 +35,7 @@ class Car:
 		self.inputs = Inputs()
 
 		self.image = pygame.image.load(self.config.image_path).convert_alpha()
-		self.image = pygame.transform.scale(self.image,
-		 (32, 16))
+		self.image = pygame.transform.scale(self.image, (32, 16))
 
 	def setConfig(self):
 		self.inertia = self.config.mass * self.config.inertiaScale
@@ -194,8 +193,8 @@ class Car:
 		return surface
 
 	def getStats(self):
-		statsLabel = ["Speed", "acceleration", "yawRate", "Heading"]
-		stats = [round(self.velocity_c.x * 3.6), round(self.accel_c.x), round(self.yawRate), round(degrees(self.heading))]
+		statsLabel = ["Speed", "acceleration"]
+		stats = [round(self.velocity_c.x * 3.6), round(self.accel_c.x)]
 		text = ""
 		for i in range(len(stats)):
 			text += statsLabel[i] + ": "

@@ -6,11 +6,17 @@ TRACK_GREY = (108,108,108,255)
 START_POINT = pygame.math.Vector2(455,237)
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
-GREEN = (0, 255, 0) 
-BLUE = (0, 0, 128) 
+GREEN = (0, 255, 0, 255) 
+BLUE = (0, 0, 255, 255)
+RED = (255, 0, 0, 255)
 FPS = 60
+CP_REWARD = 10 # reward when crossing a checkpoint
+SCORE_DECAY = 1/1000 # score decay per millisecond in circuit
+DIE_PENALTY = 100
+N_TOURS = 1
 screen_size = (1024,768)
-MAP_PATH = os.path.split(os.getcwd())[0] + "\\resources\\map.png"
+sep = os.path.sep
+MAP_PATH = os.path.split(os.getcwd())[0] + sep +"resources"+sep
 
 font = pygame.font.SysFont("comicsansms", 40)
 
@@ -48,4 +54,4 @@ class Config:
 		self.rollResist = 8. # rolling resistance force ( * vel )
 		self.safeSteer = False
 		self.smoothSteer = True
-		self.image_path = os.path.split(os.getcwd())[0] + "\\resources\\car.png"
+		self.image_path = os.path.split(os.getcwd())[0] + sep+"resources"+sep+"car.png"
