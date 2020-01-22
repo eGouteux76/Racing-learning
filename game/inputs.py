@@ -21,11 +21,11 @@ class Inputs:
         
     #action :left, right, throttle, brake, ebrake 
     def add(self, liste):
-        self.left += liste[0]
-        self.right += liste[1]
-        self.throttle += liste[2]
-        self.brake += liste[3]
-        self.ebrake += liste[4]
+        self.left = liste[0]
+        self.right = liste[1]
+        self.throttle = liste[2]
+        self.brake = liste[3]
+        self.ebrake = liste[4]
         
     def update(self):
         self.reset()

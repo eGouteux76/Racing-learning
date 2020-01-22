@@ -22,7 +22,7 @@ ModelsPath = "models"
 LoadWeithsAndTest = False  #Validate model, no training
 LoadWeithsAndTrain = False  #Load model and saved agent and train further
 render = True      #Diplay game while training
-LEARNING_RATE = 0.001    
+LEARNING_RATE = 0.01    
 MEMORY_CAPACITY = int(1e4) 
 BATCH_SIZE = 32            
 
@@ -32,18 +32,19 @@ HUBER_LOSS_DELTA = 1.0
 #actions :left, right, throttle, brake, ebrake 
 
 action_buffer = np.array([#definir toutes les actions ici
-        [0.,1.,0.5,0.,0.], #Action 1 : droite
-        [1.,0.,0.5,0.,0.],
-        [0.,1.,0.,2.,0.],
-        [1.,0.,0.,2.,0.],
-        [0.,0.,1.5,0.,0.]] )   
+        [0.,1.,1.,0.,0.], #Action 1 : droite
+        [1.,0.,1.,0.,0.],
+        [0.,1.,0.,1.,0.],
+        [1.,0.,0.,1.,0.],
+        [0.,0.,1.5,0.,0.],
+        [0.,0.,0.,1.,0.]] )   
 
 NumberOfDiscActions = action_buffer.shape[0]
 
 
 
 def SelectAction(Act):
-    return action_buffer[Act-1]
+    return action_buffer[Act]
 
 def SelectArgAction(Act):
     for i in range(NumberOfDiscActions):
@@ -110,11 +111,11 @@ class Brain:
         
         x = brain_in
         #x = Dense(100, activation='Selu')(x)
-        x = Dense(50, activation='selu')(x)
-        x = Dense(20, activation='selu')(x)
-        x = Dense(self.action_Shape, activation="linear")(x)
+        x = Dense(50, activation='selu', kernel_initializer = keras.initializers.lecun_uniform() )(x)
+        x = Dense(20, activation='selu', kernel_initializer = keras.initializers.lecun_uniform())(x)
+        y = Dense(self.action_Shape, activation="linear", kernel_initializer = keras.initializers.lecun_uniform())(x)
         
-        model = Model(inputs=brain_in, outputs=x)
+        model = Model(inputs=brain_in, outputs=y)
         
         self.opt = Kopt.RMSprop(lr=LEARNING_RATE)
         #self.opt = Kopt.RMSprop()
@@ -195,6 +196,9 @@ class Agent:
         self.action = None
         self.reward = None
         self.next_state = None
+        self.nb_training = 0
+        
+        self.rewards = []
         
         self.brain = Brain(self.state_Input_shape, self.action_Shape)
         
@@ -282,7 +286,9 @@ class Agent:
     def replay(self):    
         
         batch = self.memory.sample(BATCH_SIZE)     
-        x, y = self._getTargets(batch) 
+        x, y = self._getTargets(batch)
+        self.nb_training +=1
+        print("entrainement :", self.nb_training)
         self.brain.train(x, y)
         
         
@@ -311,13 +317,16 @@ class Agent:
                 self.reward = reward
                 self.next_state = state
                 self.memory.add(self.state,self.action,reward,self.next_state,done)
-                if self.steps % TRAIN_EVERY ==0 and self.steps > BATCH_SIZE*(ACTION_REPEAT+1):
+                if self.steps % TRAIN_EVERY ==0 and len(self.memory.memory) > BATCH_SIZE:
                     self.replay()
-                    
                 action, arg_action = self.act(state)
                 self.action = action
                 is_active = True
                 self.observe()
+                if done : 
+                    self.state = None
+                    self.next_state = None 
+                    self.reward = 0
                 return action, is_active
             
         else :

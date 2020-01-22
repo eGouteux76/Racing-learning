@@ -40,7 +40,6 @@ while train:
     if is_ai:
         
         network_inputs = agent_inputs(vectors, car, circuit_img)
-        
         car_inputs, active = agent.step(network_inputs, score_update, running) #score à changer
         # agent_decision retourne une classe Inputs,  
         # avec les entrees que l'IA a decide de faire. 
@@ -49,6 +48,7 @@ while train:
         
     score += score_update
     if not running :
+        checkpoint = 0
         car = Car(0.,START_POINT)
         running = True
         score = 0
