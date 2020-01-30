@@ -19,8 +19,8 @@ running = True
 vectors = [pygame.Vector2(0.,-1),pygame.Vector2(1,-1),pygame.Vector2(1,-0.5),pygame.Vector2(1,0.),pygame.Vector2(1,0.5),pygame.Vector2(1,1),pygame.Vector2(0.,1)]
 score = 0
 checkpoint = 0
-reload_model = True
-model_path = "models\DDQN_model_cp.h5"
+reload_model = False
+model_path = "models/DDQN_model_cp.h5"
 
 INPUT_LEN = 11
 
