@@ -19,18 +19,20 @@ running = True
 vectors = [pygame.Vector2(0.,-1),pygame.Vector2(1,-1),pygame.Vector2(1,-0.5),pygame.Vector2(1,0.),pygame.Vector2(1,0.5),pygame.Vector2(1,1),pygame.Vector2(0.,1)]
 score = 0
 checkpoint = 0
-reload_model = False
+reload_model = True
 model_path = "models\DDQN_model_cp.h5"
 
 INPUT_LEN = 11
 
 is_ai = True
 train = True
+
 agent = model.Agent(INPUT_LEN,6)
 
 
 if reload_model:
     agent.load_model(model_path)
+    
 
 while train:
     
@@ -47,12 +49,15 @@ while train:
             car.inputs.add(car_inputs) # actualisation des inputs de la voiture par l'ia
         
     score += score_update
-    if not running :
+    print("Score = ", score)
+    
+    if not running : 
+        agent.nb_tentative += 1           
         checkpoint = 0
         car = Car(0.,START_POINT)
         running = True
         score = 0
         print("restart")
-    print("Score = ", score)
+    
     
     
