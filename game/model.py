@@ -16,13 +16,12 @@ from keras.models import Model
 
 #a changer
 ModelsPath = "models"
-
 #Parametres pour le jeu et l'entrainement
 
 LoadWeithsAndTest = False  #Validate model, no training
 LoadWeithsAndTrain = False  #Load model and saved agent and train further
 render = True      #Diplay game while training
-LEARNING_RATE = 0.01    
+LEARNING_RATE = 0.005    
 MEMORY_CAPACITY = int(1e4) 
 BATCH_SIZE = 32            
 
@@ -41,6 +40,16 @@ action_buffer = np.array([#definir toutes les actions ici
 
 NumberOfDiscActions = action_buffer.shape[0]
 
+
+def get_nb_tentative(path):
+    f = open(path+"nb_tentative.txt", "r")
+    var = f.read()
+    var = var.split(" ")
+    print("exploration stop :", var[1])
+    print("nb_tentative :", var[0])
+    nb_tentative = int(var[0])
+    f.close()
+    return nb_tentative
 
 
 def SelectAction(Act):
@@ -76,8 +85,8 @@ class Brain:
         self.model = self._createModel() # behavior network
         self.model_ = self._createModel()  # target network ( pour calculer la target )
 
-        self.ModelsPath_cp = ModelsPath + "\DDQN_model_cp.h5"
-        self.ModelsPath_cp_per = ModelsPath + "\DDQN_model_cp_per.h5"
+        self.ModelsPath_cp = ModelsPath + "/DDQN_model_cp.h5"
+        self.ModelsPath_cp_per = ModelsPath + "/DDQN_model_cp_per.h5"
         
         
         #save les modeles dans des fichiers (le best + periodique)
@@ -175,7 +184,6 @@ class Memory:   # stocké comme ( s, a, r, s_ ,error)
     
         
 ACTION_REPEAT = 4
-MAX_NB_STEP = ACTION_REPEAT * 100
 GAMMA = 0.95
 UPDATE_TARGET_FREQUENCY = int(200)  
 EXPLORATION_STOP = int(10000)  
@@ -189,7 +197,7 @@ class Agent:
     epsilon = MAX_EPSILON
     memory = Memory(MEMORY_CAPACITY)
     
-    def __init__(self, state_Input_len , action_len):
+    def __init__(self, state_Input_len , action_len, nb_tentative = 0):
         
         self.state_Input_shape = state_Input_len
         self.action_Shape = action_len
@@ -198,10 +206,9 @@ class Agent:
         self.reward = None
         self.next_state = None
         self.nb_training = 0
-        self.nb_tentative = 0
+        self.nb_tentative = nb_tentative
         self.rewards =[]
         self.total_score = 0
-        
         self.brain = Brain(self.state_Input_shape, self.action_Shape)
         
         self.no_state = np.zeros(state_Input_len)
@@ -241,6 +248,8 @@ class Agent:
             self.brain.updateTargetModel()
             print ("Target network update")
         # slowly decrease Epsilon based on our eperience
+        path = "models/"
+        self.save_nb_tentative(path)
         self.steps += 1
         self.epsilon = MIN_EPSILON + (self.maxEpsilone - MIN_EPSILON) * math.exp(-LAMBDA * self.nb_tentative)
 
@@ -249,7 +258,7 @@ class Agent:
         #les states de départ 
         states = np.array(batch[0][:])
         #les next_states 
-        states_ = np.array(np.array(agent.no_state) if batch[3][:] is None else np.array(batch[3][:]))
+        states_ = np.array(np.array(self.no_state) if batch[3][:] is None else np.array(batch[3][:]))
         
         states = states.reshape((BATCH_SIZE,self.state_Input_shape))
         states_ = states_.reshape((BATCH_SIZE,self.state_Input_shape))
@@ -264,7 +273,7 @@ class Agent:
             
             initial_state = batch[0][i]
             
-            action = batch[1][i]; reward = batch[2][i]; next_state = batch[3][i] 
+            action = batch[1][i]; reward = batch[2][i]; #next_state = batch[3][i] 
             arg_action = SelectArgAction(action)
             
             original_Qvalue = predictions[i]
@@ -295,8 +304,8 @@ class Agent:
         
     def step(self, state, reward, running):
         print("epsilon=",self.epsilon)
-        done = running
-        if self.steps % ACTION_REPEAT ==0:
+        done = not running
+        if self.steps % ACTION_REPEAT == 0:
             if self.state is None :
                 self.state = state
                 action, arg_action = self.act(state)
@@ -349,5 +358,11 @@ class Agent:
         self.brain.model.load_weights(model_path)
         self.brain.model_.load_weights(model_path)
         
-    #test de Brain : 
+    def save_nb_tentative(self, path):
+        f = open(path +"nb_tentative.txt", "w") # tout écrasé !
+        f.write(str(self.nb_tentative))
+        f.write(" ")
+        f.write(str(EXPLORATION_STOP))
+        f.close()
+        
 

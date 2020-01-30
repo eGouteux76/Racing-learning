@@ -19,20 +19,23 @@ running = True
 vectors = [pygame.Vector2(0.,-1),pygame.Vector2(1,-1),pygame.Vector2(1,-0.5),pygame.Vector2(1,0.),pygame.Vector2(1,0.5),pygame.Vector2(1,1),pygame.Vector2(0.,1)]
 score = 0
 checkpoint = 0
-reload_model = False
-model_path = "models/DDQN_model_cp.h5"
+reload_model = True
+
+path = "models/"
 
 INPUT_LEN = 11
 
 is_ai = True
 train = True
-
-agent = model.Agent(INPUT_LEN,6)
+agent = None
 
 
 if reload_model:
-    agent.load_model(model_path)
-    
+    nb_tentative = model.get_nb_tentative(path)
+    agent = model.Agent(INPUT_LEN,6,nb_tentative)
+    agent.load_model(path + "DDQN_model_cp.h5")
+else : 
+    agent = model.Agent(INPUT_LEN,6)
 
 while train:
     
@@ -58,6 +61,6 @@ while train:
         running = True
         score = 0
         print("restart")
-    
-    
+
+
     
