@@ -248,8 +248,6 @@ class Agent:
             self.brain.updateTargetModel()
             print ("Target network update")
         # slowly decrease Epsilon based on our eperience
-        path = "models/"
-        self.save_nb_tentative(path)
         self.steps += 1
         self.epsilon = MIN_EPSILON + (self.maxEpsilone - MIN_EPSILON) * math.exp(-LAMBDA * self.nb_tentative)
 
@@ -338,12 +336,16 @@ class Agent:
                 self.action = action
                 is_active = True
                 self.observe()
-                if done : 
+                if done :
+                    path = "models/"
+                    self.save_nb_tentative(path, self.total_score) 
                     self.rewards.append(self.total_score)
                     self.total_score= 0
                     self.state = None
                     self.next_state = None 
                     self.reward = 0
+                    
+                    
                 return action, is_active
             
         else :
@@ -358,11 +360,16 @@ class Agent:
         self.brain.model.load_weights(model_path)
         self.brain.model_.load_weights(model_path)
         
-    def save_nb_tentative(self, path):
+    def save_nb_tentative(self, path, score):
         f = open(path +"nb_tentative.txt", "w") # tout écrasé !
         f.write(str(self.nb_tentative))
         f.write(" ")
         f.write(str(EXPLORATION_STOP))
         f.close()
+        
+        f2 = open(path +"score.txt", "a") # a la fin
+        f2.write(str(score))
+        f2.write(" ")
+        f2.close()
         
 

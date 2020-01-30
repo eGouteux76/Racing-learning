@@ -48,7 +48,7 @@ while train:
         car_inputs, active = agent.step(network_inputs, score_update, running) #score à changer
         # agent_decision retourne une classe Inputs,  
         # avec les entrees que l'IA a decide de faire. 
-        if not np.array_equal(car_inputs,agent.no_action) :
+        if active :
             car.inputs.add(car_inputs) # actualisation des inputs de la voiture par l'ia
         
     score += score_update
