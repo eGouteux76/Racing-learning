@@ -40,7 +40,7 @@ else :
 while train:
     
     running, score_update, checkpoint = game_loop(screen, clock, car, vectors, circuit, is_ai=is_ai,
-     checkpoint=checkpoint, render=True)
+     checkpoint=checkpoint, render=False)
     
     if is_ai:
         

@@ -22,7 +22,7 @@ LoadWeithsAndTest = False  #Validate model, no training
 LoadWeithsAndTrain = False  #Load model and saved agent and train further
 render = True      #Diplay game while training
 LEARNING_RATE = 0.005    
-MEMORY_CAPACITY = int(1e4) 
+MEMORY_CAPACITY = int(3e4) 
 BATCH_SIZE = 32            
 
 #hyperparametre huber loss
@@ -186,7 +186,7 @@ class Memory:   # stocké comme ( s, a, r, s_ ,error)
 ACTION_REPEAT = 4
 GAMMA = 0.95
 UPDATE_TARGET_FREQUENCY = int(200)  
-EXPLORATION_STOP = int(10000)  
+EXPLORATION_STOP = int(3000)  
 LAMBDA = - math.log(0.001) / EXPLORATION_STOP   # speed of decay fn of episodes of learning agent
 MAX_EPSILON = 0.99
 MIN_EPSILON = 0.01
