@@ -10,7 +10,7 @@ import utils
 def agent_inputs(vectors, car, circuit_img):
     vectors_distance = [utils.distanceToCollision(car.position,
      circuit_img, vector.rotate(math.degrees(car.heading)))[1] for vector in vectors]
-    car_data = [car.absVel, car.heading, car.accel_c[0], car.accel_c[1]]
+    car_data = [car.velocity_c[0], car.velocity_c[1], car.yawRate, car.accel_c[0], car.accel_c[1]]
     
     #on "normalise" les distances pour pas avoir trop de la merde au début
     vectors_distance = [i*0.01 for i in vectors_distance]

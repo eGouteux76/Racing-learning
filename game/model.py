@@ -8,6 +8,7 @@ Created on Sat Jan 18 11:46:20 2020
 import random, math
 import numpy as np
 from keras import backend as K
+from keras import regularizers
 import keras
 import keras.optimizers as Kopt
 #from keras.layers import Convolution2D
@@ -21,12 +22,14 @@ ModelsPath = "models"
 LoadWeithsAndTest = False  #Validate model, no training
 LoadWeithsAndTrain = False  #Load model and saved agent and train further
 render = True      #Diplay game while training
-LEARNING_RATE = 0.005    
+
+INPUT_LEN = 12
+LEARNING_RATE = 0.003
 MEMORY_CAPACITY = int(3e4) 
 BATCH_SIZE = 32            
 
 #hyperparametre huber loss
-HUBER_LOSS_DELTA = 1.0
+HUBER_LOSS_DELTA = 2.0
 
 #actions :left, right, throttle, brake, ebrake 
 
@@ -120,8 +123,8 @@ class Brain:
         
         x = brain_in
         #x = Dense(100, activation='Selu')(x)
-        x = Dense(40, activation='selu', kernel_initializer = keras.initializers.lecun_uniform() )(x)
-        x = Dense(20, activation='selu', kernel_initializer = keras.initializers.lecun_uniform())(x)
+        x = Dense(40, activation='selu', kernel_initializer = keras.initializers.lecun_uniform(),kernel_regularizer=regularizers.l2(0.0001) )(x)
+        x = Dense(20, activation='selu', kernel_initializer = keras.initializers.lecun_uniform(),kernel_regularizer=regularizers.l2(0.0001))(x)
         y = Dense(self.action_Shape, activation="linear", kernel_initializer = keras.initializers.lecun_uniform())(x)
         
         model = Model(inputs=brain_in, outputs=y)
@@ -183,14 +186,14 @@ class Memory:   # stocké comme ( s, a, r, s_ ,error)
         return states, actions, rewards, next_states, dones
     
         
-ACTION_REPEAT = 4
+ACTION_REPEAT = 13
 GAMMA = 0.95
 UPDATE_TARGET_FREQUENCY = int(200)  
 EXPLORATION_STOP = int(3000)  
 LAMBDA = - math.log(0.001) / EXPLORATION_STOP   # speed of decay fn of episodes of learning agent
 MAX_EPSILON = 0.99
 MIN_EPSILON = 0.01
-TRAIN_EVERY = 3
+TRAIN_EVERY = 1
 
 class Agent:
     steps = 0
@@ -207,7 +210,6 @@ class Agent:
         self.next_state = None
         self.nb_training = 0
         self.nb_tentative = nb_tentative
-        self.rewards =[]
         self.total_score = 0
         self.brain = Brain(self.state_Input_shape, self.action_Shape)
         
@@ -297,8 +299,9 @@ class Agent:
         batch = self.memory.sample(BATCH_SIZE)     
         x, y = self._getTargets(batch)
         self.nb_training +=1
-        print("entrainement :", self.nb_training)
         self.brain.train(x, y)
+        print("entrainement :", self.nb_training)
+        
         
     def step(self, state, reward, running):
         print("epsilon=",self.epsilon)
@@ -330,7 +333,7 @@ class Agent:
                 #error = self.get_error(self.state,self.action,reward,self.next_state,done)
                 self.memory.add(self.state,self.action,reward,self.next_state,done)
 
-                if self.steps % TRAIN_EVERY ==0 and len(self.memory.memory) > BATCH_SIZE:
+                if len(self.memory.memory) > BATCH_SIZE:
                     self.replay()
                 action, arg_action = self.act(state)
                 self.action = action
@@ -338,17 +341,35 @@ class Agent:
                 self.observe()
                 if done :
                     path = "models/"
-                    self.save_nb_tentative(path, self.total_score) 
-                    self.rewards.append(self.total_score)
+                    self.save_score(path)
+                    self.save_nb_tentative(path) 
                     self.total_score= 0
                     self.state = None
                     self.next_state = None 
                     self.reward = 0
-                    
+                    self.nb_tentative +=1
                     
                 return action, is_active
             
         else :
+            if done :
+                self.state = self.next_state
+                self.reward = reward
+                self.total_score += reward
+                self.next_state = state
+                #error = self.get_error(self.state,self.action,reward,self.next_state,done)
+                self.memory.add(self.state,self.action,reward,self.next_state,done)
+                if len(self.memory.memory) > BATCH_SIZE:
+                    self.replay()
+                path = "models/"
+                self.save_nb_tentative(path) 
+                self.save_score(path)
+                self.total_score= 0
+                self.state = None
+                self.next_state = None 
+                self.reward = 0
+                self.nb_tentative +=1
+                
             is_active = False
             action = self.no_action
             self.steps +=1
@@ -360,15 +381,16 @@ class Agent:
         self.brain.model.load_weights(model_path)
         self.brain.model_.load_weights(model_path)
         
-    def save_nb_tentative(self, path, score):
+    def save_nb_tentative(self, path):
         f = open(path +"nb_tentative.txt", "w") # tout écrasé !
         f.write(str(self.nb_tentative))
         f.write(" ")
         f.write(str(EXPLORATION_STOP))
         f.close()
         
+    def save_score(self, path):
         f2 = open(path +"score.txt", "a") # a la fin
-        f2.write(str(score))
+        f2.write(str(self.total_score))
         f2.write(" ")
         f2.close()
         

@@ -19,12 +19,10 @@ running = True
 vectors = [pygame.Vector2(0.,-1),pygame.Vector2(1,-1),pygame.Vector2(1,-0.5),pygame.Vector2(1,0.),pygame.Vector2(1,0.5),pygame.Vector2(1,1),pygame.Vector2(0.,1)]
 score = 0
 checkpoint = 0
-reload_model = True
 
 path = "models/"
-
-INPUT_LEN = 11
-
+reload_model = True
+INPUT_LEN = 12
 is_ai = True
 train = True
 agent = None
@@ -40,7 +38,7 @@ else :
 while train:
     
     running, score_update, checkpoint = game_loop(screen, clock, car, vectors, circuit, is_ai=is_ai,
-     checkpoint=checkpoint, render=False)
+     checkpoint=checkpoint, render=True)
     
     if is_ai:
         
@@ -54,8 +52,7 @@ while train:
     score += score_update
     print("Score = ", score)
     
-    if not running : 
-        agent.nb_tentative += 1           
+    if not running :         
         checkpoint = 0
         car = Car(0.,START_POINT)
         running = True
