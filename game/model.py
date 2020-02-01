@@ -189,7 +189,7 @@ class Memory:   # stocké comme ( s, a, r, s_ ,error)
 ACTION_REPEAT = 13
 GAMMA = 0.95
 UPDATE_TARGET_FREQUENCY = int(200)  
-EXPLORATION_STOP = int(3000)  
+EXPLORATION_STOP = int(5000)  
 LAMBDA = - math.log(0.001) / EXPLORATION_STOP   # speed of decay fn of episodes of learning agent
 MAX_EPSILON = 0.99
 MIN_EPSILON = 0.01
