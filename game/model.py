@@ -1,33 +1,28 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sat Jan 18 11:46:20 2020
-
-@author: Edouard
-"""
-
 import random, math
 import numpy as np
 from keras import backend as K
 from keras import regularizers
 import keras
 import keras.optimizers as Kopt
-#from keras.layers import Convolution2D
-from keras.layers import Dense, Input #,Dropout, Flatten
+from keras.layers import Dense, Input 
 from keras.models import Model
+import os
 
-#a changer
 ModelsPath = "models"
+sep = os.path.sep
 #Parametres pour le jeu et l'entrainement
-
-LoadWeithsAndTest = False  #Validate model, no training
-LoadWeithsAndTrain = False  #Load model and saved agent and train further
-render = True      #Diplay game while training
-
+ACTION_REPEAT = 13 #la voiture décide une action toutes les ACTION_REPEAT frames
+GAMMA = 0.95 #paramétre pondération des récompenses dans le temps
+UPDATE_TARGET_FREQUENCY = int(200) #frequence mise a jour du réseau target
+EXPLORATION_STOP = int(5000) #arret de l'exploration (epsilon minimal)
+LAMBDA = - math.log(0.001) / EXPLORATION_STOP #speed of decay fn of episodes of learning agent
+MAX_EPSILON = 0.99
+MIN_EPSILON = 0.01
+TRAIN_EVERY = 1 #frequence d'entrainement par rapport aux actions prises
 INPUT_LEN = 12
 LEARNING_RATE = 0.003
-MEMORY_CAPACITY = int(3e4) 
+MEMORY_CAPACITY = int(3e4) #taille mémoire
 BATCH_SIZE = 32            
-
 #hyperparametre huber loss
 HUBER_LOSS_DELTA = 2.0
 
@@ -38,8 +33,8 @@ action_buffer = np.array([#definir toutes les actions ici
         [1.,0.,1.5,0.,0.],
         [0.,1.,0.,0.5,0.],
         [1.,0.,0.,0.5,0.],
-        [0.,0.,2.,0.,0.],
-        [0.,0.,0.,1.,0.]] )   
+        [0.,0.,1.5,0.,0.],
+        [0.,0.,0.,1.5,0.]] )   
 
 NumberOfDiscActions = action_buffer.shape[0]
 
@@ -58,7 +53,9 @@ def get_nb_tentative(path):
 def SelectAction(Act):
     return action_buffer[Act]
 
+
 def SelectArgAction(Act):
+
     for i in range(NumberOfDiscActions):
         if np.all(Act == action_buffer[i]):
             return i
@@ -123,7 +120,7 @@ class Brain:
         
         x = brain_in
         #x = Dense(100, activation='Selu')(x)
-        x = Dense(40, activation='selu', kernel_initializer = keras.initializers.lecun_uniform(),kernel_regularizer=regularizers.l2(0.0001) )(x)
+        x = Dense(40, activation='selu', kernel_initializer = keras.initializers.lecun_uniform(),kernel_regularizer=regularizers.l2(0.0001))(x)
         x = Dense(20, activation='selu', kernel_initializer = keras.initializers.lecun_uniform(),kernel_regularizer=regularizers.l2(0.0001))(x)
         y = Dense(self.action_Shape, activation="linear", kernel_initializer = keras.initializers.lecun_uniform())(x)
         
@@ -185,16 +182,7 @@ class Memory:   # stocké comme ( s, a, r, s_ ,error)
         states, actions, rewards, next_states, dones = zip(*samples)
         return states, actions, rewards, next_states, dones
     
-        
-ACTION_REPEAT = 13
-GAMMA = 0.95
-UPDATE_TARGET_FREQUENCY = int(200)  
-EXPLORATION_STOP = int(5000)  
-LAMBDA = - math.log(0.001) / EXPLORATION_STOP   # speed of decay fn of episodes of learning agent
-MAX_EPSILON = 0.99
-MIN_EPSILON = 0.01
-TRAIN_EVERY = 1
-
+    
 class Agent:
     steps = 0
     epsilon = MAX_EPSILON
@@ -381,12 +369,15 @@ class Agent:
         self.brain.model.load_weights(model_path)
         self.brain.model_.load_weights(model_path)
         
+        
+        
     def save_nb_tentative(self, path):
         f = open(path +"nb_tentative.txt", "w") # tout écrasé !
         f.write(str(self.nb_tentative))
         f.write(" ")
         f.write(str(EXPLORATION_STOP))
         f.close()
+        
         
     def save_score(self, path):
         f2 = open(path +"score.txt", "a") # a la fin

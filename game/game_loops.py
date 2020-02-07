@@ -29,7 +29,9 @@ def game_loop(screen, clock, car, vectors, circuit, is_ai=True, checkpoint=0, re
     renderedText = car.getStats()
     text = font.render(renderedText, True, (0, 128, 0))
 
+
     car.update(dtms)
+    
 
     surface = car.render()
     surface = pygame.transform.rotate(surface, -math.degrees(car.heading))
@@ -54,7 +56,7 @@ def game_loop(screen, clock, car, vectors, circuit, is_ai=True, checkpoint=0, re
     if onCheck:
         checkpoint += 1
         circuit_img = circuit.get_nth_checkpoint(checkpoint)
-        score_update += CP_REWARD
+        score_update += CP_REWARD*(checkpoint+1)
 
     out_of_circuit = utils.collides(car.position, circuit_img)
     running = not (out_of_circuit or checkpoint == circuit.n_checkpoints * N_TOURS)
