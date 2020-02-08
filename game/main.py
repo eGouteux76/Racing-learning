@@ -62,7 +62,7 @@ while train:
     if score_update >0 :
         t=0
     if t > max_frame :
-        score_update -= 50
+        score_update -= 120
         running = False
         
     if is_renforcement:
