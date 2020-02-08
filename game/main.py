@@ -8,17 +8,6 @@ import model
 import numpy as np
 from Heuristique import heuristic, params
 #TODO gestion score par voiture
-from game import Game
-
-
-def net_to_input(net):
-    inp = Inputs()
-    inp.left = net[0]
-    inp.right = net[1]    
-    inp.throttle = net[2]
-    inp.brake = net[3]
-    return inp
-
 
 pygame.init()
 screen = pygame.display.set_mode(screen_size)
