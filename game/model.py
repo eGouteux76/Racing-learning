@@ -7,11 +7,12 @@ import keras.optimizers as Kopt
 from keras.layers import Dense, Input 
 from keras.models import Model
 import os
+from SumTree import SumTree
 
 ModelsPath = "models"
 sep = os.path.sep
 #Parametres pour le jeu et l'entrainement
-ACTION_REPEAT = 13 #la voiture décide une action toutes les ACTION_REPEAT frames
+ACTION_REPEAT = 8 #la voiture décide une action toutes les ACTION_REPEAT frames
 GAMMA = 0.95 #paramétre pondération des récompenses dans le temps
 UPDATE_TARGET_FREQUENCY = int(200) #frequence mise a jour du réseau target
 EXPLORATION_STOP = int(5000) #arret de l'exploration (epsilon minimal)
@@ -20,25 +21,26 @@ MAX_EPSILON = 0.99
 MIN_EPSILON = 0.01
 TRAIN_EVERY = 1 #frequence d'entrainement par rapport aux actions prises
 INPUT_LEN = 12
-LEARNING_RATE = 0.003
+LEARNING_RATE = 0.001
 MEMORY_CAPACITY = int(3e4) #taille mémoire
 BATCH_SIZE = 32            
 #hyperparametre huber loss
-HUBER_LOSS_DELTA = 2.0
+HUBER_LOSS_DELTA = 1.5
 
 #actions :left, right, throttle, brake, ebrake 
 
 action_buffer = np.array([#definir toutes les actions ici
-        [0.,1.,1.5,0.,0.], #Action 1 : droite
-        [1.,0.,1.5,0.,0.],
-        [0.,1.,0.,0.5,0.],
-        [1.,0.,0.,0.5,0.],
+        [0.,0.6,0.,0.,0.], #Action 1 : droite
+        [0.6,0.,0.,0.,0.],
         [0.,0.,1.5,0.,0.],
-        [0.,0.,0.,1.5,0.]] )   
+        [0.,0.,0.,1.5,0.]] ) 
 
 NumberOfDiscActions = action_buffer.shape[0]
 
 
+"""
+retourne le nombre de tentative que l'agent à effectué
+"""
 def get_nb_tentative(path):
     f = open(path+"nb_tentative.txt", "r")
     var = f.read()
@@ -61,7 +63,10 @@ def SelectArgAction(Act):
             return i
     raise ValueError('SelectArgAction: Act not in action_buffer')
 
-
+"""
+huber loss utilisée pour le deep-Q-learning.
+https://en.wikipedia.org/wiki/Huber_loss
+"""
 def huber_loss(y_true, y_pred):
     err = y_true - y_pred
 
@@ -71,16 +76,38 @@ def huber_loss(y_true, y_pred):
 
     else:
         loss = 0.5 * HUBER_LOSS_DELTA**2 + HUBER_LOSS_DELTA * (K.abs(err) - HUBER_LOSS_DELTA)
-
     return K.mean(loss)
 
 
+"""
+fonction pour recharger le modéle avec parametres epsilon et les poids du réseau
+/!\ les poids doivent être les mêmes
+"""
+def reload_agent_renforcement(path,reload_model,reload_nb_tentative):
+    nb_tentative = 0
+    if reload_nb_tentative:
+        nb_tentative = get_nb_tentative(path)
+        agent = Agent(INPUT_LEN,NumberOfDiscActions,nb_tentative)
+        agent.load_model(path + "DDQN_model_cp.h5")
+    else : 
+        agent = Agent(INPUT_LEN,NumberOfDiscActions)
+    return agent
+
+
+"""
+classe Brain, contient les deux réseaux de neurones 
+ainsi que les paramétres liés à ceux-ci.
+
+entrée : 
+    - state_input_shape : taille de l'espace d'état de l'agent
+    - action_shape : nombre d'action que peut effectuer l'agent
+"""
 class Brain:
 
-    def __init__(self, state_Input_shape , action_Shape):
+    def __init__(self, state_Input_shape , action_shape):
         
         self.state_Input_shape = state_Input_shape 
-        self.action_Shape = action_Shape
+        self.action_shape = action_shape
         
         self.model = self._createModel() # behavior network
         self.model_ = self._createModel()  # target network ( pour calculer la target )
@@ -122,7 +149,7 @@ class Brain:
         #x = Dense(100, activation='Selu')(x)
         x = Dense(40, activation='selu', kernel_initializer = keras.initializers.lecun_uniform(),kernel_regularizer=regularizers.l2(0.0001))(x)
         x = Dense(20, activation='selu', kernel_initializer = keras.initializers.lecun_uniform(),kernel_regularizer=regularizers.l2(0.0001))(x)
-        y = Dense(self.action_Shape, activation="linear", kernel_initializer = keras.initializers.lecun_uniform())(x)
+        y = Dense(self.action_shape, activation="linear", kernel_initializer = keras.initializers.lecun_uniform())(x)
         
         model = Model(inputs=brain_in, outputs=y)
         
@@ -158,31 +185,54 @@ class Brain:
     def updateTargetModel(self):
         self.model_.set_weights(self.model.get_weights())
         
-        
-        
-from collections import deque
-        
 
-class Memory:   # stocké comme ( s, a, r, s_ ,error) 
-        
+"""
+mémoire qui contient les experiences passés de l'agent.
+Lors d'un entrainement nous piochons dans cette mémoire afin 
+d'apprendre grâce aux expériences passées.
+
+entrée : capacité de la mémoire
+"""
+
+class Memory:   # stored as ( s, a, r, s_, done ) in SumTree
+    e = 0.01
+    a = 0.6
+
     def __init__(self, capacity):
-        self.memory = deque(maxlen=capacity)
+        self.tree = SumTree(capacity)
 
-    def add(self, state, action, reward, next_state, done):
-        self.memory.append((state, action, reward, next_state, done))
-        
-    #def sort_memory_by_error(self):
-    #    self.memory = sorted(self.memory, key=lambda colonnes: colonnes[5])
+    def _getPriority(self, error):
+        return (error + self.e) ** self.a
 
-    def sample(self, batch_size):
+    def add(self, error, sample):
+        p = self._getPriority(error)
+        self.tree.add(p, sample) 
+
+    def sample(self, n):
+        batch = []
+        segment = self.tree.total() / n
+
+        for i in range(n):
+            a = segment * i
+            b = segment * (i + 1)
+
+            s = random.uniform(a, b)
+            (idx, p, data) = self.tree.get(s)
+            batch.append( (idx, data) )
+
+        return batch
+    
+    #juste ça a voir
+    def update(self, idx, error):
+        p = self._getPriority(error)
+        self.tree.update(idx, p)
         
-        #trier la memory en fonction des erreurs plus tard
-        #assert(len(self.memory)>batch_size)
-        samples = random.sample(self.memory, batch_size)
-        states, actions, rewards, next_states, dones = zip(*samples)
-        return states, actions, rewards, next_states, dones
-    
-    
+        
+"""
+classe Agent dotée d'une Memory et d'une Brain.
+permet à l'agent d'apprendre à partir de ces deux composants.
+
+"""
 class Agent:
     steps = 0
     epsilon = MAX_EPSILON
@@ -191,7 +241,7 @@ class Agent:
     def __init__(self, state_Input_len , action_len, nb_tentative = 0):
         
         self.state_Input_shape = state_Input_len
-        self.action_Shape = action_len
+        self.action_shape = action_len
         self.state = None
         self.action = None
         self.reward = None
@@ -199,7 +249,7 @@ class Agent:
         self.nb_training = 0
         self.nb_tentative = nb_tentative
         self.total_score = 0
-        self.brain = Brain(self.state_Input_shape, self.action_Shape)
+        self.brain = Brain(self.state_Input_shape, self.action_shape)
         
         self.no_state = np.zeros(state_Input_len)
         self.no_action = np.zeros(action_len)
@@ -221,7 +271,7 @@ class Agent:
     def act(self, s):
         
         if  random.random()  < self.epsilon:
-            arg_act = np.random.randint(self.action_Shape)
+            arg_act = np.random.randint(self.action_shape)
             self.rand=True
             return SelectAction(arg_act), arg_act
         else:
@@ -230,26 +280,35 @@ class Agent:
             arg_act = np.argmax(prediction[0])
             self.rand=False
             return SelectAction(arg_act), arg_act
-        
-        
-    def observe(self):  # in (s, a, r, s_) format
+            
+
+    def observe(self, sample):  # in (s, a, r, s_) format
+        x, y, errors = self._getTargets([(0, sample)], False)
+        self.memory.add(errors[0], sample)
 
         if self.nb_training+1 % UPDATE_TARGET_FREQUENCY == 0:
             self.brain.updateTargetModel()
             print ("Target network update")
+            #print ("Target network update")
         # slowly decrease Epsilon based on our eperience
         self.steps += 1
         self.epsilon = MIN_EPSILON + (self.maxEpsilone - MIN_EPSILON) * math.exp(-LAMBDA * self.nb_tentative)
 
-
-    def _getTargets(self, batch):
-        #les states de départ 
-        states = np.array(batch[0][:])
-        #les next_states 
-        states_ = np.array(np.array(self.no_state) if batch[3][:] is None else np.array(batch[3][:]))
+    def observe_no_action(self):
+        self.steps += 1
+        self.epsilon = MIN_EPSILON + (self.maxEpsilone - MIN_EPSILON) * math.exp(-LAMBDA * self.nb_tentative)
         
-        states = states.reshape((BATCH_SIZE,self.state_Input_shape))
-        states_ = states_.reshape((BATCH_SIZE,self.state_Input_shape))
+
+    def _getTargets(self, batch, train=True):
+        #les states de départ 
+        states = np.array([ o[1][0] for o in batch ])
+        states_ = np.array([ (self.no_state if o[1][3] is None else o[1][3]) for o in batch ])
+        
+        #states = np.array(batch[0][:])
+        #states_ = np.array(np.array(self.no_state) if batch[3][:] is None else np.array(batch[3][:]))
+        if train :
+            states = states.reshape((BATCH_SIZE,self.state_Input_shape))
+            states_ = states_.reshape((BATCH_SIZE,self.state_Input_shape))
         
         predictions = self.brain.predict(states)
         
@@ -257,40 +316,46 @@ class Agent:
         predictions_ = self.brain.predict(states_, target=False)
         
         
-        for i in range(len(batch[0])): #batch[0] car batch = [tous les x, toutes les actions, tous les x']
+        for i in range(len(batch)): #batch[0] car batch = [tous les x, toutes les actions, tous les x']
+            o = batch[i][1]
+            initial_state = o[0]; action = o[1]; reward = o[2]
+            #next_state = batch[3][i] 
             
-            initial_state = batch[0][i]
-            
-            action = batch[1][i]; reward = batch[2][i]; #next_state = batch[3][i] 
             arg_action = SelectArgAction(action)
             
             original_Qvalue = predictions[i]
-            
+            new_value = original_Qvalue
             #calcul des targets
-            if batch[4][i]: #if done
-                original_Qvalue[arg_action] = reward
+            if o[4]: #if done
+                new_value[arg_action] = reward
             else:
-                original_Qvalue[arg_action] = reward + GAMMA * pTarget_[i][ np.argmax(predictions_[i]) ]  # double DQN
+                new_value[arg_action] = reward + GAMMA * pTarget_[i][ np.argmax(predictions_[i]) ]  # double DQN
             
             self.x[i] = initial_state
-            self.y[i] = original_Qvalue
+            self.y[i] = new_value
             
             #sec_best = t[np.argsort(t)[::-1][1]]
             if self.steps % 20 == 0 and i == len(batch)-1:
-                print('Qvalue',original_Qvalue[arg_action], 'reward: %.4f' % reward,'mean Qvalue',np.mean(original_Qvalue))
+                print('Qvalue',new_value[arg_action], 'reward: %.4f' % reward,'mean Qvalue',np.mean(new_value))
                 
-        return (self.x, self.y)
-
+            self.errors[i] = abs(original_Qvalue[arg_action] - new_value[arg_action])
+        return (self.x, self.y, self.errors)
+    
 
     def replay(self):    
-        
-        batch = self.memory.sample(BATCH_SIZE)     
-        x, y = self._getTargets(batch)
+        batch = self.memory.sample(BATCH_SIZE)
+        x, y, errors = self._getTargets(batch,True)
+
+        #update errors
+        for i in range(len(batch)):
+            idx = batch[i][0]
+            self.memory.update(idx, errors[i])
+            
         self.nb_training +=1
-        self.brain.train(x, y)
         print("entrainement :", self.nb_training)
+        self.brain.train(x, y)
         
-        
+    
     def step(self, state, reward, running):
         print("epsilon=",self.epsilon)
         done = not running
@@ -301,7 +366,7 @@ class Agent:
                 self.action = action
                 self.total_score += reward
                 is_active = True
-                self.observe()
+                self.observe_no_action()
                 return action, is_active
                 
             elif self.next_state is None :
@@ -311,7 +376,7 @@ class Agent:
                 action, arg_action = self.act(state)
                 self.action = action
                 is_active = True
-                self.observe()
+                self.observe_no_action()
                 return action, is_active
             else :
                 self.state = self.next_state
@@ -319,14 +384,12 @@ class Agent:
                 self.total_score += reward
                 self.next_state = state
                 #error = self.get_error(self.state,self.action,reward,self.next_state,done)
-                self.memory.add(self.state,self.action,reward,self.next_state,done)
-
-                if len(self.memory.memory) > BATCH_SIZE:
+                self.observe((self.state,self.action,reward,self.next_state,done))
+                if self.steps > BATCH_SIZE*(ACTION_REPEAT+2):
                     self.replay()
                 action, arg_action = self.act(state)
                 self.action = action
                 is_active = True
-                self.observe()
                 if done :
                     path = "models/"
                     self.save_score(path)
@@ -346,8 +409,8 @@ class Agent:
                 self.total_score += reward
                 self.next_state = state
                 #error = self.get_error(self.state,self.action,reward,self.next_state,done)
-                self.memory.add(self.state,self.action,reward,self.next_state,done)
-                if len(self.memory.memory) > BATCH_SIZE:
+                self.observe((self.state,self.action,reward,self.next_state,done))
+                if self.steps > BATCH_SIZE*(ACTION_REPEAT+2):
                     self.replay()
                 path = "models/"
                 self.save_nb_tentative(path) 
@@ -385,4 +448,25 @@ class Agent:
         f2.write(" ")
         f2.close()
         
-
+if __name__ == "__main__" :
+    
+    action_buffer = np.array([#definir toutes les actions ici
+        [0.,0.6,0.,0.,0.], #Action 1 : droite
+        [0.6,0.,0.,0.,0.],
+        [0.,0.,1.5,0.,0.],
+        [0.,0.,0.,1.5,0.]] ) 
+    
+    agent = Agent(2,6)
+    state = [1,2]
+    
+    action1 = [0.,1.,1.5,0.,0.]
+    action2 = [0.,1.,1.5,0.,0.]
+    
+    reward = 12
+    done = False
+    agent.observe((state, action1, reward, state, done))
+    
+    running = True
+    for i in range(200):
+        agent.step(state, reward, True)
+    agent.step(state, reward, False)

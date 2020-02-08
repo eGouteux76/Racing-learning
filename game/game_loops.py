@@ -49,8 +49,7 @@ def game_loop(screen, clock, car, vectors, circuit, is_ai=True, checkpoint=0, re
         m, d = utils.distanceToCollision(car.position, circuit_img, vector.rotate(math.degrees(car.heading)))
         if render:
             pygame.draw.circle(screen, GREEN, m, 10)
-    
-
+            
     onCheck = utils.onCheckpoint(car.position, circuit_img)
 
     if onCheck:
