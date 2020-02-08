@@ -36,7 +36,7 @@ else :
     agent = model.Agent(INPUT_LEN,6)
 
 while train:
-    
+    pygame.event.get()
     running, score_update, checkpoint = game_loop(screen, clock, car, vectors, circuit, is_ai=is_ai,
      checkpoint=checkpoint, render=True)
     
